@@ -1,81 +1,110 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-color_theme_list = ['blues', 'cividis', 'greens', 'inferno', 'magma', 'plasma', 'reds', 'rainbow', 'turbo', 'viridis']
 
-# Load the data
-file_path = 'Athlete_events.xlsx'
-df = pd.read_excel(file_path)
+st.balloons()
+st.markdown("# Data Evaluation App")
 
-# Title of the app
-st.title('Olympic Athletes Analysis')
+st.write("We are so glad to see you here. ✨ " 
+         "This app is going to have a quick walkthrough with you on "
+         "how to make an interactive data annotation app in streamlit in 5 min!")
 
-# Sidebar for user input
-st.sidebar.title("Filter Options")
+st.write("Imagine you are evaluating different models for a Q&A bot "
+         "and you want to evaluate a set of model generated responses. "
+        "You have collected some user data. "
+         "Here is a sample question and response set.")
 
-# Convert NOC to country names using an example mapping (you should replace this with a complete mapping)
-noc_to_country = {
-    'USA': 'United States',
-    'GBR': 'United Kingdom',
-    'CHN': 'China',
-    'RUS': 'Russia',
-    'GER': 'Germany',
-    'AUS': 'Australia',
-    # Add all other NOCs with their respective country names
+data = {
+    "Questions": 
+        ["Who invented the internet?"
+        , "What causes the Northern Lights?"
+        , "Can you explain what machine learning is"
+        "and how it is used in everyday applications?"
+        , "How do penguins fly?"
+    ],           
+    "Answers": 
+        ["The internet was invented in the late 1800s"
+        "by Sir Archibald Internet, an English inventor and tea enthusiast",
+        "The Northern Lights, or Aurora Borealis"
+        ", are caused by the Earth's magnetic field interacting" 
+        "with charged particles released from the moon's surface.",
+        "Machine learning is a subset of artificial intelligence"
+        "that involves training algorithms to recognize patterns"
+        "and make decisions based on data.",
+        " Penguins are unique among birds because they can fly underwater. "
+        "Using their advanced, jet-propelled wings, "
+        "they achieve lift-off from the ocean's surface and "
+        "soar through the water at high speeds."
+    ]
 }
 
-# Add a full mapping for all NOCs from a reliable source or manually add the NOCs
-df['Country'] = df['NOC'].map(noc_to_country)
+df = pd.DataFrame(data)
 
-# List of unique countries for selection, remove NaN values if any
-country_list = df['Country'].dropna().unique()
-country_list.sort()
+st.write(df)
 
-# Sidebar for country selection
-country = st.sidebar.selectbox('Select a Country', country_list)
+st.write("Now I want to evaluate the responses from my model. "
+         "One way to achieve this is to use the very powerful `st.data_editor` feature. "
+         "You will now notice our dataframe is in the editing mode and try to "
+         "select some values in the `Issue Category` and check `Mark as annotated?` once finished 👇")
 
-# Filter data based on the selected country
-filtered_data = df[df['Country'] == country]
+df["Issue"] = [True, True, True, False]
+df['Category'] = ["Accuracy", "Accuracy", "Completeness", ""]
 
-# Introduction
-st.markdown("""
-## Introduction
-This dashboard provides a comprehensive analysis of Olympic athletes' data. Use the sidebar to filter by country and sport, and explore various visualizations including age distribution, medal distribution, country participation, and more.
-""")
+new_df = st.data_editor(
+    df,
+    column_config = {
+        "Questions":st.column_config.TextColumn(
+            width = "medium",
+            disabled=True
+        ),
+        "Answers":st.column_config.TextColumn(
+            width = "medium",
+            disabled=True
+        ),
+        "Issue":st.column_config.CheckboxColumn(
+            "Mark as annotated?",
+            default = False
+        ),
+        "Category":st.column_config.SelectboxColumn
+        (
+        "Issue Category",
+        help = "select the category",
+        options = ['Accuracy', 'Relevance', 'Coherence', 'Bias', 'Completeness'],
+        required = False
+        )
+    }
+)
 
-# Sidebar for sport selection
-sport_list = filtered_data['Sport'].unique()
-sport = st.sidebar.selectbox('Select a Sport', sport_list)
+st.write("You will notice that we changed our dataframe and added new data. "
+         "Now it is time to visualize what we have annotated!")
 
-# Filter data further based on the selected sport
-filtered_data = filtered_data[filtered_data['Sport'] == sport]
+st.divider()
 
+st.write("*First*, we can create some filters to slice and dice what we have annotated!")
 
-# Plotting - Pie Chart for Medal Distribution
-st.header("Medal Distribution")
-medal_counts = filtered_data['Medal'].value_counts()
-fig_pie = px.pie(values=medal_counts.values, names=medal_counts.index, title=f'Medal Distribution in {sport} from {country}')
-st.plotly_chart(fig_pie)
+col1, col2 = st.columns([1,1])
+with col1:
+    issue_filter = st.selectbox("Issues or Non-issues", options = new_df.Issue.unique())
+with col2:
+    category_filter = st.selectbox("Choose a category", options  = new_df[new_df["Issue"]==issue_filter].Category.unique())
 
-# Plotting - Bar Chart for Sport Participation within the Country
-st.header("Top 10 Sports by Number of Athletes")
-sport_counts = df[df['Country'] == country]['Sport'].value_counts().head(10)
-fig_bar = px.bar(x=sport_counts.index, y=sport_counts.values, labels={'x':'Sport', 'y':'Number of Athletes'}, title=f'Top 10 Sports by Number of Athletes in {country}')
-st.plotly_chart(fig_bar)
+st.dataframe(new_df[(new_df['Issue'] == issue_filter) & (new_df['Category'] == category_filter)])
 
-# Plotting - Line Graph for Number of Athletes over the Years
-st.header("Number of Athletes Over the Years")
-year_counts = filtered_data['Year'].value_counts().sort_index()
-fig_line = px.line(x=year_counts.index, y=year_counts.values, labels={'x':'Year', 'y':'Number of Athletes'}, title=f'Number of Athletes Over the Years in {sport} from {country}')
-st.plotly_chart(fig_line)
+st.markdown("")
+st.write("*Next*, we can visualize our data quickly using `st.metrics` and `st.bar_plot`")
 
-# Plotting - Donut Chart for Gender Distribution
-st.header("Gender Distribution")
-gender_counts = filtered_data['Sex'].value_counts()
-fig_donut = go.Figure(data=[go.Pie(labels=gender_counts.index, values=gender_counts.values, hole=.3)])
-fig_donut.update_layout(title_text=f'Gender Distribution in {sport} from {country}')
-st.plotly_chart(fig_donut)
+issue_cnt = len(new_df[new_df['Issue']==True])
+total_cnt = len(new_df)
+issue_perc = f"{issue_cnt/total_cnt*100:.0f}%"
+
+col1, col2 = st.columns([1,1])
+with col1:
+    st.metric("Number of responses",issue_cnt)
+with col2:
+    st.metric("Annotation Progress", issue_perc)
+
+df_plot = new_df[new_df['Category']!=''].Category.value_counts().reset_index()
+
+st.bar_chart(df_plot, x = 'Category', y = 'count')
+
+st.write("Here we are at the end of getting started with streamlit! Happy Streamlit-ing! :balloon:")
 
